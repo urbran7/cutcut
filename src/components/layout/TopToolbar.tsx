@@ -1,6 +1,9 @@
 import { FC } from 'react'
+import { useUIStore } from '../../stores/uiStore'
 
 const TopToolbar: FC = () => {
+  const triggerImportMedia = useUIStore(state => state.triggerImportMedia)
+
   const toolbarButtons = [
     'New',
     'Open',
@@ -21,7 +24,7 @@ const TopToolbar: FC = () => {
           <button
             key={label}
             className="px-3 py-1.5 text-sm bg-app-control rounded hover:bg-app-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-text-main"
-            // Import button is now enabled - functionality handled by file input in LeftSidebar
+            onClick={label === 'Import' ? triggerImportMedia : undefined}
             disabled={label !== 'Import'}
           >
             {label}
