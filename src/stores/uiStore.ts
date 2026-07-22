@@ -6,12 +6,14 @@ interface UIState {
   activePanelTab: PanelTab
   inspectorVisible: boolean
   notifications: Notification[]
+  importMediaTrigger: number
   
   // Actions
   setActivePanelTab: (tab: PanelTab) => void
   setInspectorVisible: (visible: boolean) => void
   addNotification: (message: string, type?: 'info' | 'success' | 'error' | 'warning') => void
   removeNotification: (id: string) => void
+  triggerImportMedia: () => void
 }
 
 interface Notification {
@@ -25,6 +27,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   activePanelTab: 'media',
   inspectorVisible: true,
   notifications: [],
+  importMediaTrigger: 0,
   
   setActivePanelTab: (tab: PanelTab) => {
     set({ activePanelTab: tab })
@@ -57,5 +60,9 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({
       notifications: get().notifications.filter(n => n.id !== id),
     })
+  },
+  
+  triggerImportMedia: () => {
+    set(state => ({ importMediaTrigger: state.importMediaTrigger + 1 }))
   },
 }))
