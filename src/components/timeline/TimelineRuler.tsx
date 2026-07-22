@@ -1,5 +1,7 @@
-import { FC, useMemo } from 'react'
-import { timeUsToPixels } from '../../utils/coordinates'
+import { FC, useRef, useMemo } from 'react'
+import { useTimelineStore } from '../../stores/timelineStore'
+import TimelinePlayhead from './TimelinePlayhead'
+import { timeUsToPixels, pixelsToTimeUs } from '../../utils/coordinates'
 
 interface TimelineRulerProps {
   durationUs: number
@@ -10,9 +12,11 @@ const MAJOR_TICK_INTERVAL_US = 5_000_000 // 5 seconds in microseconds
 const MINOR_TICK_INTERVAL_US = 1_000_000 // 1 second in microseconds
 
 const TimelineRuler: FC<TimelineRulerProps> = ({ durationUs, zoomPercentage }) => {
-  const rulerWidth = useMemo(() => {
-    return timeUsToPixels(durationUs, zoomPercentage)
-  }, [durationUs, zoomPercentage])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const setPlayheadTimeUs = useTimelineStore((state) => state.setPlayheadTimeUs)
+  
+  const rulerWidth = timeUsToPixels(durationUs, zoomPercentage)
 
   // Generate major tick labels (every 5 seconds)
   const majorTicks = useMemo(() => {
@@ -34,10 +38,26 @@ const TimelineRuler: FC<TimelineRulerProps> = ({ durationUs, zoomPercentage }) =
     return ticks
   }, [durationUs])
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (!containerRef.current || !scrollContainerRef.current) return
+    
+    const containerRect = containerRef.current.getBoundingClientRect()
+    const scrollLeft = scrollContainerRef.current.scrollLeft
+    const trackHeaderWidth = 120
+    
+    const x = e.clientX - containerRect.left - trackHeaderWidth + scrollLeft
+    const timeUs = pixelsToTimeUs(x, zoomPercentage)
+    const clampedTime = Math.max(0, Math.min(durationUs, timeUs))
+    
+    setPlayheadTimeUs(clampedTime)
+  }
+
   return (
     <div 
+      ref={containerRef}
       className="h-6 bg-app-secondary border-b border-app-border relative overflow-hidden"
       style={{ width: rulerWidth }}
+      onClick={handleClick}
     >
       {/* Minor ticks */}
       {minorTicks.map((us) => {
@@ -68,6 +88,12 @@ const TimelineRuler: FC<TimelineRulerProps> = ({ durationUs, zoomPercentage }) =
           </div>
         )
       })}
+      
+      {/* Playhead */}
+      <TimelinePlayhead 
+        containerRef={containerRef}
+        scrollContainerRef={scrollContainerRef}
+      />
     </div>
   )
 }

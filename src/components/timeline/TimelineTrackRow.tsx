@@ -2,7 +2,6 @@ import { FC } from 'react'
 import TimelineTrackHeader from './TimelineTrackHeader'
 
 interface TimelineTrackRowProps {
-  _trackId: string
   trackName: string
   trackType: 'video' | 'audio'
 }
@@ -10,7 +9,6 @@ interface TimelineTrackRowProps {
 const TRACK_HEIGHT = 52
 
 const TimelineTrackRow: FC<TimelineTrackRowProps> = ({ 
-  _trackId, 
   trackName, 
   trackType 
 }) => {

@@ -1,5 +1,7 @@
 import { FC } from 'react'
+import { useTimelineStore } from '../../stores/timelineStore'
 import { Minus, Plus } from 'lucide-react'
+import { formatTimeMicroseconds } from '../../utils/time'
 
 interface TimelineToolbarProps {
   zoomPercentage: number
@@ -11,6 +13,8 @@ const MAX_ZOOM = 200
 const ZOOM_STEP = 10
 
 const TimelineToolbar: FC<TimelineToolbarProps> = ({ zoomPercentage, onZoomChange }) => {
+  const playheadTimeUs = useTimelineStore((state) => state.playheadTimeUs)
+  
   const handleZoomOut = () => {
     onZoomChange(Math.max(MIN_ZOOM, zoomPercentage - ZOOM_STEP))
   }
@@ -26,6 +30,11 @@ const TimelineToolbar: FC<TimelineToolbarProps> = ({ zoomPercentage, onZoomChang
   return (
     <div className="h-8 bg-app-panel border-b border-app-border flex items-center px-3 gap-3">
       <span className="text-text-main font-semibold text-sm">Timeline</span>
+      
+      {/* Current time display */}
+      <span className="text-text-secondary text-xs font-mono">
+        {formatTimeMicroseconds(playheadTimeUs)}
+      </span>
       
       <div className="flex items-center gap-2 ml-auto">
         <button
