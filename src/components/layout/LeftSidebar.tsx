@@ -1,6 +1,6 @@
 import { FC, useState, useRef } from 'react'
 import { useProjectStore } from '../../stores/projectStore'
-import { createMediaItemFromFile } from '../../services/mediaService'
+import { createMediaItemFromFile, detectMediaTypeFromExtension } from '../../services/mediaService'
 import { MediaItem } from '../../models/project'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024
@@ -18,7 +18,7 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
   const [importedCount, setImportedCount] = useState(0)
   const [importedItems, setImportedItems] = useState<MediaItem[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { addMedia, project } = useProjectStore()
+  const { addMedia } = useProjectStore()
   
   const supportedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime']
   const supportedAudioTypes = ['audio/mpeg', 'audio/wav', 'audio/aac']
@@ -32,6 +32,7 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
   }
   
   const formatDuration = (us: number): string => {
+    if (us <= 0) return '--:--'
     const seconds = Math.floor(us / 1_000_000)
     const minutes = Math.floor(seconds / 60)
     const hours = Math.floor(minutes / 60)
@@ -71,14 +72,14 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
     }
   }
   
+  const isFileTypeSupported = (file: File): boolean => {
+    const allMimeTypes = [...supportedVideoTypes, ...supportedAudioTypes, ...supportedImageTypes]
+    if (file.type && allMimeTypes.includes(file.type)) return true
+    return detectMediaTypeFromExtension(file.name) !== null
+  }
+  
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return
-    
-    const supportedTypes = [
-      ...supportedVideoTypes,
-      ...supportedAudioTypes,
-      ...supportedImageTypes,
-    ]
     
     const filesToProcess = Array.from(files)
     setIsImporting(true)
@@ -94,8 +95,9 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
         continue
       }
       
-      if (!supportedTypes.includes(file.type)) {
-        invalidFiles.push(`${file.name}: Unsupported file type (${file.type})`)
+      if (!isFileTypeSupported(file)) {
+        const displayType = file.type || 'unknown'
+        invalidFiles.push(`${file.name}: Unsupported file type (${displayType})`)
         continue
       }
       
@@ -153,14 +155,14 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
         ref={fileInputRef}
         type="file"
         multiple
-        accept={`${supportedVideoTypes.join(',')};${supportedAudioTypes.join(',')};${supportedImageTypes.join(',')}`}
+        accept="video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/aac,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mov,.mp3,.wav,.aac"
         className="hidden"
         onChange={handleFileChange}
         disabled={isImporting}
       />
       
       <div className="flex border-b border-app-border">
-        {(tabs as any).map((tab: { id: TabType; label: string }) => (
+        {([{ id: 'media' as const, label: 'Media' }, { id: 'filters' as const, label: 'Filters' }, { id: 'transitions' as const, label: 'Transitions' }]).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -227,7 +229,7 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
                       </div>
                       <div className="text-xs text-text-secondary flex items-center gap-2">
                         <span className="capitalize">{item.mediaType}</span>
-                        {item.durationUs > 0 && (
+                        {(item.mediaType === 'video' || item.mediaType === 'audio') && item.durationUs > 0 && (
                           <>
                             <span>•</span>
                             <span>{formatDuration(item.durationUs)}</span>
