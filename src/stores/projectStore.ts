@@ -6,13 +6,16 @@ interface ProjectState {
   project: Project | null
   runtimeMedia: Map<string, MediaItem>
   dirty: boolean
+  selectedMediaId: string | null
   
   // Actions
   createProject: (name?: string) => void
   loadProject: (project: Project, runtimeMedia: Map<string, MediaItem>) => void
   updateProjectMetadata: (updates: Partial<Pick<Project, 'name' | 'canvasWidth' | 'canvasHeight' | 'frameRate'>>) => void
   addMedia: (media: MediaItem) => void
-  removeMedia: (mediaId: string) => void
+  removeMedia: (mediaId: string) => { success: boolean; reason?: string }
+  selectMedia: (mediaId: string | null) => void
+  clearMediaSelection: () => void
   setDirty: (dirty: boolean) => void
   markSaved: () => void
 }
@@ -26,10 +29,32 @@ const createDefaultTracks = (): Track[] => {
   ]
 }
 
+function isMediaReferencedInTimeline(project: Project, mediaId: string): boolean {
+  return project.tracks.some(track =>
+    track.clips.some(clip => clip.mediaId === mediaId)
+  )
+}
+
+function revokeMediaUrl(url: string | null): void {
+  if (url && url.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(url)
+  }
+}
+
+function revokeMediaUrls(media: MediaItem): void {
+  if (media.objectUrl && media.thumbnailUrl && media.objectUrl === media.thumbnailUrl) {
+    revokeMediaUrl(media.objectUrl)
+  } else {
+    revokeMediaUrl(media.objectUrl)
+    revokeMediaUrl(media.thumbnailUrl)
+  }
+}
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   project: null,
   runtimeMedia: new Map(),
   dirty: false,
+  selectedMediaId: null,
 
   createProject: (name?: string) => {
     const now = Date.now()
@@ -44,12 +69,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ 
       project, 
       runtimeMedia: new Map(),
-      dirty: false 
+      dirty: false,
+      selectedMediaId: null,
     })
   },
 
   loadProject: (project: Project, runtimeMedia: Map<string, MediaItem>) => {
-    set({ project, runtimeMedia, dirty: false })
+    set({ project, runtimeMedia, dirty: false, selectedMediaId: null })
   },
 
   updateProjectMetadata: (updates) => {
@@ -87,8 +113,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   removeMedia: (mediaId: string) => {
-    const { project, runtimeMedia } = get()
-    if (!project) return
+    const { project, runtimeMedia, selectedMediaId } = get()
+    if (!project) return { success: false, reason: 'no-project' }
+
+    if (isMediaReferencedInTimeline(project, mediaId)) {
+      return { success: false, reason: 'in-timeline' }
+    }
+
+    const mediaToRemove = runtimeMedia.get(mediaId)
+    if (mediaToRemove) {
+      revokeMediaUrls(mediaToRemove)
+    }
 
     const newRuntimeMedia = new Map(runtimeMedia)
     newRuntimeMedia.delete(mediaId)
@@ -100,8 +135,21 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         updatedAt: Date.now(),
       },
       runtimeMedia: newRuntimeMedia,
+      selectedMediaId: selectedMediaId === mediaId ? null : selectedMediaId,
       dirty: true,
     })
+
+    return { success: true }
+  },
+
+  selectMedia: (mediaId: string | null) => {
+    const { runtimeMedia } = get()
+    if (mediaId !== null && !runtimeMedia.has(mediaId)) return
+    set({ selectedMediaId: mediaId })
+  },
+
+  clearMediaSelection: () => {
+    set({ selectedMediaId: null })
   },
 
   setDirty: (dirty: boolean) => {
