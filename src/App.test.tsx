@@ -4,30 +4,78 @@ import App from './App'
 describe('App', () => {
   it('renders NovaCut Web Lite title', () => {
     render(<App />)
-    expect(screen.getByText('NovaCut Web Lite')).toBeInTheDocument()
+    expect(screen.getByText('NovaCut')).toBeInTheDocument()
   })
 
-  it('renders the subtitle', () => {
+  it('renders the version info', () => {
     render(<App />)
-    expect(screen.getByText('Lightweight recap video editor')).toBeInTheDocument()
+    expect(screen.getByText('Version 0.1')).toBeInTheDocument()
   })
 
-  it('renders project foundation ready status', () => {
+  it('renders Media tab', () => {
     render(<App />)
-    expect(screen.getByText('Project foundation ready')).toBeInTheDocument()
+    expect(screen.getByText('Media')).toBeInTheDocument()
   })
 
-  it('renders disabled Create Project button', () => {
+  it('renders Filters tab', () => {
     render(<App />)
-    const createProjectButton = screen.getByRole('button', { name: 'Create Project' })
-    expect(createProjectButton).toBeInTheDocument()
-    expect(createProjectButton).toBeDisabled()
+    expect(screen.getByText('Filters')).toBeInTheDocument()
   })
 
-  it('renders disabled Import Media button', () => {
+  it('renders Transitions tab', () => {
     render(<App />)
-    const importMediaButton = screen.getByRole('button', { name: 'Import Media' })
-    expect(importMediaButton).toBeInTheDocument()
-    expect(importMediaButton).toBeDisabled()
+    expect(screen.getByText('Transitions')).toBeInTheDocument()
+  })
+
+  it('renders no media imported message', () => {
+    render(<App />)
+    expect(screen.getByText('No media imported')).toBeInTheDocument()
+  })
+
+  it('renders Preview placeholder', () => {
+    render(<App />)
+    expect(screen.getByText('Preview')).toBeInTheDocument()
+  })
+
+  it('renders Inspector header', () => {
+    render(<App />)
+    expect(screen.getByText('Inspector')).toBeInTheDocument()
+  })
+
+  it('renders no clip selected message', () => {
+    render(<App />)
+    expect(screen.getByText('No clip selected.')).toBeInTheDocument()
+  })
+
+  it('renders Timeline header', () => {
+    render(<App />)
+    expect(screen.getByText('Timeline')).toBeInTheDocument()
+  })
+
+  it('renders Video 2 track', () => {
+    render(<App />)
+    expect(screen.getByText('Video 2')).toBeInTheDocument()
+  })
+
+  it('renders Video 1 track', () => {
+    render(<App />)
+    expect(screen.getByText('Video 1')).toBeInTheDocument()
+  })
+
+  it('renders Audio 1 track', () => {
+    render(<App />)
+    expect(screen.getByText('Audio 1')).toBeInTheDocument()
+  })
+
+  it('renders Audio 2 track', () => {
+    render(<App />)
+    expect(screen.getByText('Audio 2')).toBeInTheDocument()
+  })
+
+  it('renders disabled toolbar buttons', () => {
+    render(<App />)
+    const newButton = screen.getByRole('button', { name: 'New' })
+    expect(newButton).toBeInTheDocument()
+    expect(newButton).toBeDisabled()
   })
 })

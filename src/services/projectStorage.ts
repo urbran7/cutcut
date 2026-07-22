@@ -1,4 +1,4 @@
-import { Project, MediaItem } from '../models/project'
+import { Project } from '../models/project'
 
 const DB_NAME = 'NovaCutWebLite'
 const DB_VERSION = 1
@@ -82,7 +82,7 @@ export async function getAllProjects(): Promise<Array<{ id: string; name: string
     const request = store.getAll()
 
     request.onsuccess = () => {
-      const results = request.result.map((item: any) => ({
+      const results = request.result.map((item: { id: string; name: string; updatedAt: number }) => ({
         id: item.id,
         name: item.name,
         updatedAt: item.updatedAt,
@@ -133,7 +133,17 @@ export async function saveMediaMetadata(mediaId: string, metadata: {
   })
 }
 
-export async function loadMediaMetadata(mediaId: string): Promise<any | null> {
+export async function loadMediaMetadata(mediaId: string): Promise<{
+  id: string
+  fileName: string
+  fileSize: number
+  mimeType: string
+  durationUs: number
+  width: number
+  height: number
+  mediaType: string
+  savedAt: number
+} | null> {
   const database = await openDB()
   
   return new Promise((resolve, reject) => {
