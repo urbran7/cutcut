@@ -15,7 +15,6 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
   const [activeTab, setActiveTab] = useState<TabType>('media')
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
-  const [importedCount, setImportedCount] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -91,6 +90,12 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     
+    // Ensure a project exists before importing
+    const { project, createProject } = useProjectStore.getState()
+    if (!project) {
+      createProject()
+    }
+    
     const filesToProcess = Array.from(files)
     setIsImporting(true)
     setImportError(null)
@@ -138,7 +143,9 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
     }
     
     const totalImported = validFiles.length - duplicateFiles.length
-    setImportedCount(prev => prev + totalImported)
+    if (totalImported > 0) {
+      addNotification(`${totalImported} file(s) imported`, 'success')
+    }
     onImportComplete?.(totalImported)
     
     if (invalidFiles.length > 0) {
@@ -297,15 +304,10 @@ const LeftSidebar: FC<LeftSidebarProps> = ({ onImportComplete }) => {
               </div>
               
               <div className="text-xs text-text-secondary">
-                {getItemCountLabel(allMedia.length)}
+                {getItemCountLabel(filteredMedia.length)}
               </div>
             </div>
             
-            {importedCount > 0 && (
-              <div className="mb-3 text-sm text-green-600 dark:text-green-400">
-                {importedCount} item(s) imported
-              </div>
-            )}
             {importError && (
               <div className="mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400">
                 <div className="font-medium mb-1">Import errors:</div>
