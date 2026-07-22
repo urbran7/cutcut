@@ -3,23 +3,63 @@ import { MediaItem } from '../models/project'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024 // 2GB warning threshold
 
-export async function getMediaMetadata(file: File): Promise<
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov']
+const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.aac']
+
+function getFileExtension(fileName: string): string {
+  const dotIndex = fileName.lastIndexOf('.')
+  if (dotIndex === -1) return ''
+  return fileName.slice(dotIndex).toLowerCase()
+}
+
+export function detectMediaTypeFromExtension(fileName: string): 'video' | 'audio' | 'image' | null {
+  const ext = getFileExtension(fileName)
+  if (IMAGE_EXTENSIONS.includes(ext)) return 'image'
+  if (VIDEO_EXTENSIONS.includes(ext)) return 'video'
+  if (AUDIO_EXTENSIONS.includes(ext)) return 'audio'
+  return null
+}
+
+function getSupportedMediaType(file: File): 'video' | 'audio' | 'image' | null {
+  const mimeType = file.type
+
+  if (mimeType.startsWith('video/')) return 'video'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  if (mimeType.startsWith('image/')) return 'image'
+
+  return detectMediaTypeFromExtension(file.name)
+}
+
+const SUPPORTED_MIME_TYPES = [
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/aac',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]
+
+export async function getMediaMetadata(file: File): Promise<{
   durationUs: number
   width: number
   height: number
   mediaType: 'video' | 'audio' | 'image'
-> {
-  const mimeType = file.type
+}> {
+  const mediaType = getSupportedMediaType(file)
   
-  if (mimeType.startsWith('video/')) {
+  if (mediaType === 'video') {
     return getVideoMetadata(file)
-  } else if (mimeType.startsWith('audio/')) {
+  } else if (mediaType === 'audio') {
     return getAudioMetadata(file)
-  } else if (mimeType.startsWith('image/')) {
+  } else if (mediaType === 'image') {
     return getImageMetadata(file)
   }
   
-  throw new Error(`Unsupported media type: ${mimeType}`)
+  throw new Error(`Unsupported media type: ${file.type || getFileExtension(file.name) || 'unknown'}`)
 }
 
 async function getVideoMetadata(file: File): Promise<{
@@ -111,27 +151,55 @@ async function getImageMetadata(file: File): Promise<{
   height: number
   mediaType: 'image'
 }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    
-    const url = URL.createObjectURL(file)
-    
-    img.onload = () => {
+  const url = URL.createObjectURL(file)
+
+  try {
+    const dimensions = await loadImage(url)
+
+    if (dimensions.width === 0 || dimensions.height === 0) {
       URL.revokeObjectURL(url)
-      resolve({
-        durationUs: 5_000_000, // Default 5 seconds for images
-        width: img.width || 1920,
-        height: img.height || 1080,
-        mediaType: 'image' as const,
-      })
+      throw new Error('Image has zero dimensions')
     }
-    
+
+    URL.revokeObjectURL(url)
+
+    return {
+      durationUs: 0,
+      width: dimensions.width,
+      height: dimensions.height,
+      mediaType: 'image' as const,
+    }
+  } catch (error) {
+    URL.revokeObjectURL(url)
+    throw error
+  }
+}
+
+async function loadImage(url: string): Promise<{ width: number; height: number }> {
+  const img = new Image()
+  img.src = url
+
+  if (typeof img.decode === 'function') {
+    try {
+      await img.decode()
+    } catch {
+      // decode failed, fall through to onload
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    if (img.complete && img.naturalWidth > 0) {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      return
+    }
+
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    }
+
     img.onerror = () => {
-      URL.revokeObjectURL(url)
       reject(new Error('Failed to load image'))
     }
-    
-    img.src = url
   })
 }
 
@@ -139,30 +207,26 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   if (file.size > MAX_FILE_SIZE) {
     return {
       valid: false,
-      error: `File \"${file.name}\" is very large (${formatBytes(file.size)}). This may cause performance issues.`,
+      error: `File "${file.name}" is very large (${formatBytes(file.size)}). This may cause performance issues.`,
     }
   }
   
-  const supportedTypes = [
-    'video/mp4',
-    'video/webm',
-    'video/quicktime',
-    'audio/mpeg',
-    'audio/wav',
-    'audio/aac',
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-  ]
-  
-  if (!supportedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      error: `Unsupported file type: ${file.type}`,
-    }
+  const mimeType = file.type
+
+  if (mimeType && SUPPORTED_MIME_TYPES.includes(mimeType)) {
+    return { valid: true }
   }
-  
-  return { valid: true }
+
+  const detectedType = detectMediaTypeFromExtension(file.name)
+  if (detectedType) {
+    return { valid: true }
+  }
+
+  const displayType = mimeType || getFileExtension(file.name) || 'unknown'
+  return {
+    valid: false,
+    error: `Unsupported file type: ${displayType}`,
+  }
 }
 
 function formatBytes(bytes: number): string {
@@ -257,7 +321,7 @@ export async function generateThumbnail(file: File, timeUs: number = 0): Promise
   }
 }
 
-export async function createMediaItemFromFile(file: File): Promise<MediaItem | null> {
+export async function createMediaItemFromFile(file: File): Promise<MediaItem> {
   const validation = validateFile(file)
   if (!validation.valid) {
     throw new Error(validation.error)
@@ -273,16 +337,23 @@ export async function createMediaItemFromFile(file: File): Promise<MediaItem | n
       fileSize: file.size,
       mimeType: file.type,
       mediaType: metadata.mediaType,
-      durationUs: metadata.durationUs,
+      durationUs: metadata.mediaType === 'image' ? 0 : metadata.durationUs,
       width: metadata.width,
       height: metadata.height,
-      objectUrl: URL.createObjectURL(file),
+      objectUrl: null,
       thumbnailUrl: null,
       createdAt: Date.now(),
     }
     
-    if (metadata.mediaType === 'video' || metadata.mediaType === 'image') {
-      mediaItem.thumbnailUrl = await generateThumbnail(file)
+    if (metadata.mediaType === 'image') {
+      const url = URL.createObjectURL(file)
+      mediaItem.objectUrl = url
+      mediaItem.thumbnailUrl = url
+    } else {
+      mediaItem.objectUrl = URL.createObjectURL(file)
+      if (metadata.mediaType === 'video') {
+        mediaItem.thumbnailUrl = await generateThumbnail(file)
+      }
     }
     
     return mediaItem
