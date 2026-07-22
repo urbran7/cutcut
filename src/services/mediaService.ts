@@ -1,11 +1,14 @@
+import { generateId } from '../utils/ids'
+import { MediaItem } from '../models/project'
+
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024 // 2GB warning threshold
 
-export async function getMediaMetadata(file: File): Promise<{
+export async function getMediaMetadata(file: File): Promise<
   durationUs: number
   width: number
   height: number
   mediaType: 'video' | 'audio' | 'image'
-}> {
+> {
   const mimeType = file.type
   
   if (mimeType.startsWith('video/')) {
@@ -136,7 +139,7 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   if (file.size > MAX_FILE_SIZE) {
     return {
       valid: false,
-      error: `File "${file.name}" is very large (${formatBytes(file.size)}). This may cause performance issues.`,
+      error: `File \"${file.name}\" is very large (${formatBytes(file.size)}). This may cause performance issues.`,
     }
   }
   
@@ -178,7 +181,6 @@ export async function generateThumbnail(file: File, timeUs: number = 0): Promise
     }
     
     if (mimeType.startsWith('image/')) {
-      // For images, create a small thumbnail
       return new Promise((resolve) => {
         const img = new Image()
         const url = URL.createObjectURL(file)
@@ -218,7 +220,11 @@ export async function generateThumbnail(file: File, timeUs: number = 0): Promise
       const url = URL.createObjectURL(file)
       
       video.onloadeddata = () => {
-        video.currentTime = timeUs / 1_000_000
+        if (isNaN(timeUs / 1_000_000)) {
+          video.currentTime = 0
+        } else {
+          video.currentTime = timeUs / 1_000_000
+        }
       }
       
       video.onseeked = () => {
@@ -248,5 +254,39 @@ export async function generateThumbnail(file: File, timeUs: number = 0): Promise
     })
   } catch {
     return null
+  }
+}
+
+export async function createMediaItemFromFile(file: File): Promise<MediaItem | null> {
+  const validation = validateFile(file)
+  if (!validation.valid) {
+    throw new Error(validation.error)
+  }
+  
+  try {
+    const metadata = await getMediaMetadata(file)
+    
+    const mediaItem: MediaItem = {
+      id: generateId(),
+      name: file.name,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+      mediaType: metadata.mediaType,
+      durationUs: metadata.durationUs,
+      width: metadata.width,
+      height: metadata.height,
+      objectUrl: URL.createObjectURL(file),
+      thumbnailUrl: null,
+      createdAt: Date.now(),
+    }
+    
+    if (metadata.mediaType === 'video' || metadata.mediaType === 'image') {
+      mediaItem.thumbnailUrl = await generateThumbnail(file)
+    }
+    
+    return mediaItem
+  } catch (error) {
+    throw new Error(`Failed to process file ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }

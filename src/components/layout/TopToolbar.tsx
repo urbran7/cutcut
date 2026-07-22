@@ -21,7 +21,8 @@ const TopToolbar: FC = () => {
           <button
             key={label}
             className="px-3 py-1.5 text-sm bg-app-control rounded hover:bg-app-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-text-main"
-            disabled
+            // Import button is now enabled - functionality handled by file input in LeftSidebar
+            disabled={label !== 'Import'}
           >
             {label}
           </button>
