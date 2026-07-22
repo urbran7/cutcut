@@ -1,37 +1,48 @@
 import { create } from 'zustand'
 
+const DEFAULT_DURATION_US = 60_000_000 // 60 seconds in microseconds
+
 interface TimelineState {
   selectedClipId: string | null
-  playheadUs: number
-  zoom: number // pixels per microsecond
+  playheadTimeUs: number
+  isDraggingPlayhead: boolean
+  zoomPercentage: number
   scrollLeft: number
   snappingEnabled: boolean
+  timelineDurationUs: number
   
   // Actions
   setSelectedClip: (clipId: string | null) => void
-  setPlayhead: (timeUs: number) => void
-  setZoom: (zoom: number) => void
+  setPlayheadTimeUs: (timeUs: number) => void
+  setDraggingPlayhead: (dragging: boolean) => void
+  setZoomPercentage: (zoom: number) => void
   setScrollLeft: (scrollLeft: number) => void
   setSnappingEnabled: (enabled: boolean) => void
 }
 
 export const useTimelineStore = create<TimelineState>((set) => ({
   selectedClipId: null,
-  playheadUs: 0,
-  zoom: 0.0001, // Default zoom level
+  playheadTimeUs: 0,
+  isDraggingPlayhead: false,
+  zoomPercentage: 100,
   scrollLeft: 0,
   snappingEnabled: true,
+  timelineDurationUs: DEFAULT_DURATION_US,
   
   setSelectedClip: (clipId: string | null) => {
     set({ selectedClipId: clipId })
   },
   
-  setPlayhead: (timeUs: number) => {
-    set({ playheadUs: Math.max(0, timeUs) })
+  setPlayheadTimeUs: (timeUs: number) => {
+    set({ playheadTimeUs: Math.max(0, Math.min(DEFAULT_DURATION_US, timeUs)) })
   },
   
-  setZoom: (zoom: number) => {
-    set({ zoom: Math.max(0.00001, Math.min(0.001, zoom)) })
+  setDraggingPlayhead: (dragging: boolean) => {
+    set({ isDraggingPlayhead: dragging })
+  },
+  
+  setZoomPercentage: (zoom: number) => {
+    set({ zoomPercentage: Math.max(50, Math.min(200, zoom)) })
   },
   
   setScrollLeft: (scrollLeft: number) => {
